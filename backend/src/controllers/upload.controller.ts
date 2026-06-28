@@ -1,4 +1,5 @@
 import { Request, Response } from 'express';
+import bcrypt from 'bcrypt';
 import pool from '../config/db';
 
 interface CsvRow {
@@ -73,6 +74,8 @@ export const uploadFile = async (req: Request, res: Response): Promise<void> => 
 
     const success: object[] = [];
     const errors: RowError[] = [];
+    const defaultPassword = process.env.DEFAULT_USER_PASSWORD || 'TempPassword123!';
+    const hashedPassword = await bcrypt.hash(defaultPassword, 10);
 
     for (let i = 1; i < lines.length; i++) {
       const line = lines[i];
@@ -95,10 +98,11 @@ export const uploadFile = async (req: Request, res: Response): Promise<void> => 
       }
 
       const result = await pool.query(
-        'INSERT INTO users (name, email, age, role) VALUES ($1, $2, $3, $4) RETURNING id, name, email, age',
+        'INSERT INTO users (name, email, password, age, role) VALUES ($1, $2, $3, $4, $5) RETURNING id, name, email, age',
         [
           row.name.trim(),
           row.email.trim(),
+          hashedPassword,
           row.age.trim() !== '' ? Number(row.age) : null,
           'user',
         ]
