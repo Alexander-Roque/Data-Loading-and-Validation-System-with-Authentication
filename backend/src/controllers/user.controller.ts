@@ -31,4 +31,31 @@ export const userController = {
       res.status(500).json({ ok: false, message: "Internal server error" });
     }
   },
+  async updateRole(req: Request, res: Response): Promise<void> {
+    const { id } = req.params;
+    const { role } = req.body;
+
+    if (!["user", "admin"].includes(role)) {
+      res
+        .status(400)
+        .json({ ok: false, message: "Invalid rol, rol must user or admin " });
+      return;
+    }
+
+    try {
+      const result = await pool.query(
+        "UPDATE users SET role = $1 WHERE id = $2 RETURNING id, name, email, role",
+        [role, id],
+      );
+
+      if (result.rows.length === 0) {
+        res.status(404).json({ ok: false, message: "User dont found" });
+        return;
+      }
+
+      res.status(200).json({ok: true, data: result.rows[0]});
+    } catch(error) {
+      res.status(500).json({ok: false, message: "Error server internal "})
+    }
+  },
 };
