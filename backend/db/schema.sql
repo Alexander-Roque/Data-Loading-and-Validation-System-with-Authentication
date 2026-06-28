@@ -35,6 +35,7 @@ CREATE TABLE public.users (
     id integer NOT NULL,
     name character varying(255) NOT NULL,
     email character varying(255) NOT NULL,
+    password character varying(255) NOT NULL,
     age integer,
     role character varying(10) DEFAULT 'user'::character varying NOT NULL,
     CONSTRAINT users_age_check CHECK ((age > 0)),
