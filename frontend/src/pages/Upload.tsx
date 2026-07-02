@@ -1,4 +1,5 @@
 import * as React from "react";
+import { useNavigate } from "react-router-dom";
 import api from "../services/api";
 
 interface SuccessRecord {
@@ -30,6 +31,7 @@ interface User {
 }
 
 export default function Upload() {
+  const navigate = useNavigate();
   const [file, setFile] = React.useState<File | null>(null);
   const [result, setResult] = React.useState<UploadResponse | null>(null);
   const [loading, setLoading] = React.useState(false);
@@ -39,6 +41,7 @@ export default function Upload() {
   >({});
   const [users, setUsers] = React.useState<User[]>([]);
   const [loadingRole, setLoadingRole] = React.useState<number | null>(null);
+  const [currentUser, setCurrentUser] = React.useState<User | null>(null);
 
   function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
     if (e.target.files && e.target.files[0]) {
@@ -96,6 +99,7 @@ export default function Upload() {
         name: edited.name || "",
         email: edited.email || "",
         age: edited.age ? Number(edited.age) : undefined,
+        password: "TempPassword123!",
       });
       setResult((prev) => {
         if (!prev) return prev;
@@ -140,19 +144,38 @@ export default function Upload() {
   }
 
   React.useEffect(() => {
+    const storedUser = localStorage.getItem("user");
+    if (storedUser) {
+      setCurrentUser(JSON.parse(storedUser));
+    }
+
+    api.get("/me").then((response) => {
+      const user = response.data?.data?.user;
+      if (user) {
+        setCurrentUser(user);
+        localStorage.setItem("user", JSON.stringify(user));
+      }
+    }).catch(() => {
+      localStorage.removeItem("user");
+      navigate("/login");
+    });
+
     fetchUsers();
-  }, []);
+  }, [navigate]);
 
   return (
     <div className="upload-container">
       <h1>Sistema de Carga de Datos</h1>
+      {currentUser && (
+        <p className="user-badge">Sesión activa: {currentUser.name} ({currentUser.role})</p>
+      )}
 
       {!result ? (
         <div className="upload-box">
           <p>Selecciona un archivo de carga</p>
           <input type="file" accept=".csv" onChange={handleFileChange} />
           {error && <p className="error-message">{error}</p>}
-          <button onClick={handleUpload} disabled={loading || !file}>
+          <button onClick={handleUpload} disabled={loading || !file || currentUser?.role !== "admin"}>
             {loading ? "Subiendo..." : "Upload File"}
           </button>
         </div>
@@ -257,6 +280,7 @@ export default function Upload() {
           )}
         </div>
       )}
+      {currentUser?.role === "admin" && (
       <div className="users-section">
         <h2>Gestión de usuarios</h2>
         <table>
@@ -293,6 +317,7 @@ export default function Upload() {
           </tbody>
         </table>
       </div>
+      )}
     </div>
   );
 }

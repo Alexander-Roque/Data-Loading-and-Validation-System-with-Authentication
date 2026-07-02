@@ -15,7 +15,11 @@ export default function Login() {
     setLoading(true);
 
     try {
-      await api.post("/login", { email, password });
+      const response = await api.post("/login", { email, password });
+      const user = response.data?.data?.user;
+      if (user) {
+        localStorage.setItem("user", JSON.stringify(user));
+      }
       navigate("/");
     } catch (err: any) {
       setError(err.response?.data?.message || "Error login");
