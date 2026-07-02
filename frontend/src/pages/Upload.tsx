@@ -16,6 +16,11 @@ interface RowError {
     email?: string;
     age?: string;
   };
+  rowData?: {
+    name: string;
+    email: string;
+    age: string;
+  };
 }
 
 interface UploadResponse {
@@ -40,6 +45,7 @@ export default function Upload() {
     Record<number, { name: string; email: string; age: string }>
   >({});
   const [users, setUsers] = React.useState<User[]>([]);
+  const fileInputRef = React.useRef<HTMLInputElement | null>(null);
   const [loadingRole, setLoadingRole] = React.useState<number | null>(null);
   const [currentUser, setCurrentUser] = React.useState<User | null>(null);
 
@@ -73,7 +79,11 @@ export default function Upload() {
         { name: string; email: string; age: string }
       > = {};
       response.data.data.errors.forEach((err: RowError) => {
-        initialEditable[err.row] = { name: "", email: "", age: "" };
+        initialEditable[err.row] = {
+          name: err.rowData?.name || "",
+          email: err.rowData?.email || "",
+          age: err.rowData?.age || "",
+        };
       });
 
       setEditableErrors(initialEditable);
@@ -118,6 +128,9 @@ export default function Upload() {
     setResult(null);
     setError("");
     setEditableErrors({});
+    if (fileInputRef.current) {
+      fileInputRef.current.value = "";
+    }
   }
 
   async function fetchUsers() {
@@ -135,7 +148,12 @@ export default function Upload() {
 
     try {
       await api.patch(`/users/${id}/role`, { role: newRole });
-      await fetchUsers();
+      // Actualizar solo el usuario específico en la lista local para mantener el orden
+      setUsers((prevUsers) =>
+        prevUsers.map((user) =>
+          user.id === id ? { ...user, role: newRole } : user
+        )
+      );
     } catch (error) {
       console.error("Error change rol");
     } finally {
@@ -173,7 +191,7 @@ export default function Upload() {
       {!result ? (
         <div className="upload-box">
           <p>Selecciona un archivo de carga</p>
-          <input type="file" accept=".csv" onChange={handleFileChange} />
+          <input ref={fileInputRef} type="file" accept=".csv" onChange={handleFileChange} />
           {error && <p className="error-message">{error}</p>}
           <button onClick={handleUpload} disabled={loading || !file || currentUser?.role !== "admin"}>
             {loading ? "Subiendo..." : "Upload File"}
@@ -303,13 +321,15 @@ export default function Upload() {
                 <td>
                   <button
                     onClick={() => handleRoleChange(user.id, user.role)}
-                    disabled={loadingRole === user.id}
+                    disabled={loadingRole === user.id || currentUser?.id === user.id}
                   >
                     {loadingRole === user.id
                       ? "Cambiando..."
-                      : user.role === "user"
-                        ? "Hacer admin"
-                        : "Hacer user"}
+                      : currentUser?.id === user.id
+                        ? "Tu cuenta"
+                        : user.role === "user"
+                          ? "Hacer admin"
+                          : "Hacer user"}
                   </button>
                 </td>
               </tr>
