@@ -15,6 +15,11 @@ interface RowError {
     email?: string;
     age?: string;
   };
+  rowData?: {
+    name: string;
+    email: string;
+    age: string;
+  };
 }
 
 const validateEmail = (email: string): boolean => {
@@ -43,6 +48,8 @@ const validateRow = (row: CsvRow): RowError['details'] => {
 
   return errors;
 };
+
+const importedUserPassword = process.env.IMPORT_USER_PASSWORD || 'prueba123';
 
 export const uploadFile = async (req: Request, res: Response): Promise<void> => {
   if (!req.file) {
@@ -74,8 +81,7 @@ export const uploadFile = async (req: Request, res: Response): Promise<void> => 
 
     const success: object[] = [];
     const errors: RowError[] = [];
-    const defaultPassword = process.env.DEFAULT_USER_PASSWORD || 'TempPassword123!';
-    const hashedPassword = await bcrypt.hash(defaultPassword, 10);
+    const hashedPassword = await bcrypt.hash(importedUserPassword, 10);
 
     for (let i = 1; i < lines.length; i++) {
       const line = lines[i];
@@ -93,22 +99,34 @@ export const uploadFile = async (req: Request, res: Response): Promise<void> => 
       const rowErrors = validateRow(row);
 
       if (Object.keys(rowErrors).length > 0) {
-        errors.push({ row: i + 1, details: rowErrors });
+        errors.push({ row: i + 1, details: rowErrors, rowData: row });
         continue;
       }
 
-      const result = await pool.query(
-        'INSERT INTO users (name, email, password, age, role) VALUES ($1, $2, $3, $4, $5) RETURNING id, name, email, age',
-        [
-          row.name.trim(),
-          row.email.trim(),
-          hashedPassword,
-          row.age.trim() !== '' ? Number(row.age) : null,
-          'user',
-        ]
-      );
+      try {
+        const result = await pool.query(
+          'INSERT INTO users (name, email, password, age, role) VALUES ($1, $2, $3, $4, $5) RETURNING id, name, email, age',
+          [
+            row.name.trim(),
+            row.email.trim(),
+            hashedPassword,
+            row.age.trim() !== '' ? Number(row.age) : null,
+            'user',
+          ]
+        );
 
-      success.push(result.rows[0]);
+        success.push(result.rows[0]);
+      } catch (dbError: any) {
+        if (dbError.code === '23505') {
+          errors.push({
+            row: i + 1,
+            details: { email: 'This email already registered.' },
+            rowData: row,
+          });
+          continue;
+        }
+        throw dbError;
+      }
     }
 
     res.status(200).json({
@@ -117,6 +135,6 @@ export const uploadFile = async (req: Request, res: Response): Promise<void> => 
     });
 
   } catch (error) {
-    res.status(500).json({ ok: false, message: 'Error interno del servidor' });
+    res.status(500).json({ ok: false, message: 'Error servidor internal' });
   }
 };

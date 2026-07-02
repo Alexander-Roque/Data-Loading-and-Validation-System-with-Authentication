@@ -19,7 +19,8 @@ export const userController = {
         return;
       }
 
-      const hashedPassword = await bcrypt.hash(password, 10);
+      const defaultPassword = process.env.DEFAULT_USER_PASSWORD || "TempPassword123!";
+      const hashedPassword = await bcrypt.hash(password || defaultPassword, 10);
 
       const result = await pool.query(
         "INSERT INTO users (name, email, password, age, role) VALUES ($1, $2, $3, $4, $5) RETURNING id, name, email, age, role",
