@@ -18,7 +18,7 @@ export default function Login() {
       const response = await api.post("/login", { email, password });
       const user = response.data?.data?.user;
       if (user) {
-        localStorage.setItem("user", JSON.stringify(user));
+        sessionStorage.setItem("user", JSON.stringify(user));
       }
       navigate("/");
     } catch (err: any) {

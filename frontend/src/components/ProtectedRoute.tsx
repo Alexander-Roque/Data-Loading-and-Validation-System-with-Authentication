@@ -11,7 +11,7 @@ export default function ProtectedRoute({ children }: ProtectedRouteProps) {
   const location = useLocation();
 
   React.useEffect(() => {
-    const storedUser = localStorage.getItem("user");
+    const storedUser = sessionStorage.getItem("user");
     if (!storedUser) {
       setAuthorized(false);
       return;
@@ -21,7 +21,7 @@ export default function ProtectedRoute({ children }: ProtectedRouteProps) {
       .get("/me")
       .then(() => setAuthorized(true))
       .catch(() => {
-        localStorage.removeItem("user");
+        sessionStorage.removeItem("user");
         setAuthorized(false);
       });
   }, []);
