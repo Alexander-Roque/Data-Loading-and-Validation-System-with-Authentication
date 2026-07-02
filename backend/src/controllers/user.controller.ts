@@ -58,4 +58,14 @@ export const userController = {
       res.status(500).json({ok: false, message: "Error server internal "})
     }
   },
+  async getUser (req: Request, res: Response): Promise <void> {
+    try {
+      const result = await pool.query (
+        "SELECT id, name, email, age, role FROM users"
+      );
+      res.status(200).json({ok: true, data: result.rows})
+    } catch (error) {
+      res.status(500).json({ ok: false, message: 'Error interno del servidor' });
+    }
+  }
 };
