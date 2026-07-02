@@ -135,7 +135,12 @@ export default function Upload() {
 
     try {
       await api.patch(`/users/${id}/role`, { role: newRole });
-      await fetchUsers();
+      // Actualizar solo el usuario específico en la lista local para mantener el orden
+      setUsers((prevUsers) =>
+        prevUsers.map((user) =>
+          user.id === id ? { ...user, role: newRole } : user
+        )
+      );
     } catch (error) {
       console.error("Error change rol");
     } finally {
@@ -303,13 +308,15 @@ export default function Upload() {
                 <td>
                   <button
                     onClick={() => handleRoleChange(user.id, user.role)}
-                    disabled={loadingRole === user.id}
+                    disabled={loadingRole === user.id || currentUser?.id === user.id}
                   >
                     {loadingRole === user.id
                       ? "Cambiando..."
-                      : user.role === "user"
-                        ? "Hacer admin"
-                        : "Hacer user"}
+                      : currentUser?.id === user.id
+                        ? "Tu cuenta"
+                        : user.role === "user"
+                          ? "Hacer admin"
+                          : "Hacer user"}
                   </button>
                 </td>
               </tr>
