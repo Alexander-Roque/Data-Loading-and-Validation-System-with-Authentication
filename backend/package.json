@@ -4,7 +4,16 @@
   "description": "",
   "main": "index.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "test": "vitest run",
+    "dev": "ts-node-dev src/index.ts",
+    "build": "tsc",
+    "start": "node dist/index.js",
+    "migrate": "dbmate up",
+    "migrate:down": "dbmate down",
+    "migrate:status": "dbmate status",
+    "migrate:new": "dbmate new",
+    "db:reset": "dbmate drop && dbmate up && npm run db:seed",
+    "db:seed": "dotenv -- sh -c 'psql $DATABASE_URL -f db/seed.sql'"
   },
   "keywords": [],
   "author": "",
@@ -12,12 +21,26 @@
   "type": "commonjs",
   "dependencies": {
     "bcrypt": "^6.0.0",
-    "cookie-parse": "^0.4.0",
+    "cookie-parser": "^1.4.7",
     "cors": "^2.8.6",
-    "dotenv": "^17.4.2",
     "express": "^5.2.1",
     "jsonwebtoken": "^9.0.3",
     "multer": "^2.2.0",
     "pg": "^8.22.0"
+  },
+  "devDependencies": {
+    "@types/bcrypt": "^6.0.0",
+    "@types/cookie-parser": "^1.4.10",
+    "@types/cors": "^2.8.19",
+    "@types/express": "^5.0.6",
+    "@types/jsonwebtoken": "^9.0.10",
+    "@types/multer": "^2.1.0",
+    "@types/node": "^26.0.1",
+    "@types/pg": "^8.20.0",
+    "dotenv": "^17.4.2",
+    "dotenv-cli": "^11.0.0",
+    "ts-node-dev": "^2.0.0",
+    "typescript": "^6.0.3",
+    "vitest": "^3.2.4"
   }
 }
