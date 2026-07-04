@@ -1,55 +1,5 @@
 import { Request, Response } from 'express';
-import bcrypt from 'bcrypt';
-import pool from '../config/db';
-
-interface CsvRow {
-  name: string;
-  email: string;
-  age: string;
-}
-
-interface RowError {
-  row: number;
-  details: {
-    name?: string;
-    email?: string;
-    age?: string;
-  };
-  rowData?: {
-    name: string;
-    email: string;
-    age: string;
-  };
-}
-
-const validateEmail = (email: string): boolean => {
-  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
-};
-
-const validateRow = (row: CsvRow): RowError['details'] => {
-  const errors: RowError['details'] = {};
-
-  if (!row.name || row.name.trim() === '') {
-    errors.name = "El campo 'name' no puede estar vacío.";
-  }
-
-  if (!row.email || row.email.trim() === '') {
-    errors.email = "El campo 'email' no puede estar vacío.";
-  } else if (!validateEmail(row.email.trim())) {
-    errors.email = "El formato del campo 'email' es inválido.";
-  }
-
-  if (row.age !== undefined && row.age.trim() !== '') {
-    const age = Number(row.age);
-    if (!Number.isInteger(age) || age <= 0) {
-      errors.age = "El campo 'age' debe ser un número entero positivo.";
-    }
-  }
-
-  return errors;
-};
-
-const importedUserPassword = process.env.IMPORT_USER_PASSWORD || 'prueba123';
+import { uploadService } from '../service/upload.service';
 
 export const uploadFile = async (req: Request, res: Response): Promise<void> => {
   if (!req.file) {
@@ -59,82 +9,24 @@ export const uploadFile = async (req: Request, res: Response): Promise<void> => 
 
   try {
     const content = req.file.buffer.toString('utf-8');
-    const lines = content.split('\n').filter(line => line.trim() !== '');
+    const parsedCsv = uploadService.parseCsv(content);
 
-    if (lines.length === 0) {
-      res.status(400).json({ ok: false, message: 'El CSV está vacío' });
+    if ('error' in parsedCsv) {
+      res.status(400).json({ ok: false, message: parsedCsv.error });
       return;
     }
 
-    const firstLine = lines[0];
-    if (!firstLine) {
-      res.status(400).json({ ok: false, message: 'El CSV está vacío' });
-      return;
-    }
-
-    const headers = firstLine.split(',').map(h => h.trim().toLowerCase());
-
-    if (!headers.includes('name') || !headers.includes('email')) {
-      res.status(400).json({ ok: false, message: 'El CSV debe tener las columnas name y email' });
-      return;
-    }
-
-    const success: object[] = [];
-    const errors: RowError[] = [];
-    const hashedPassword = await bcrypt.hash(importedUserPassword, 10);
-
-    for (let i = 1; i < lines.length; i++) {
-      const line = lines[i];
-      if (!line) {
-        continue;
-      }
-
-      const values = line.split(',').map(v => v.trim());
-      const row: CsvRow = {
-        name: values[headers.indexOf('name')] || '',
-        email: values[headers.indexOf('email')] || '',
-        age: values[headers.indexOf('age')] || '',
-      };
-
-      const rowErrors = validateRow(row);
-
-      if (Object.keys(rowErrors).length > 0) {
-        errors.push({ row: i + 1, details: rowErrors, rowData: row });
-        continue;
-      }
-
-      try {
-        const result = await pool.query(
-          'INSERT INTO users (name, email, password, age, role) VALUES ($1, $2, $3, $4, $5) RETURNING id, name, email, age',
-          [
-            row.name.trim(),
-            row.email.trim(),
-            hashedPassword,
-            row.age.trim() !== '' ? Number(row.age) : null,
-            'user',
-          ]
-        );
-
-        success.push(result.rows[0]);
-      } catch (dbError: any) {
-        if (dbError.code === '23505') {
-          errors.push({
-            row: i + 1,
-            details: { email: 'This email already registered.' },
-            rowData: row,
-          });
-          continue;
-        }
-        throw dbError;
-      }
-    }
+    const { errors, validRows } = uploadService.validateRows(parsedCsv.rows);
+    const importResult = await uploadService.importUsers(validRows);
 
     res.status(200).json({
       ok: true,
-      data: { success, errors },
+      data: {
+        success: importResult.insertedUsers,
+        errors: [...errors, ...importResult.errors],
+      },
     });
-
-  } catch (error) {
+  } catch (error: any) {
     res.status(500).json({ ok: false, message: 'Error servidor internal' });
   }
 };
